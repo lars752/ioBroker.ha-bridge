@@ -133,16 +133,11 @@
             },
             {
               "attr": "groups",
-              "type": "selectSendTo",
-              "command": "listGroups",
-              "multiple": true,
-              "manual": true,
-              "alsoDependsOn": ["adapter"],
-              "data": { "adapter": "#adapter" },
+              "type": "text",
               "label": { "de": "Gruppen (leer = alle)", "en": "Groups (empty = all)" },
               "help": {
-                "de": "Adapter einmal speichern & starten → Dropdown befüllt sich. Leer = alle.",
-                "en": "Save & start adapter once → dropdown fills. Empty = all."
+                "de": "Kommagetrennt, z. B.: wohnung_links,wohnung_rechts – leer = alle",
+                "en": "Comma-separated, e.g.: wohnung_links,wohnung_rechts – empty = all"
               },
               "width": "60%"
             }
