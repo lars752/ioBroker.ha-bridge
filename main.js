@@ -16,13 +16,14 @@
 
 const utils = require('@iobroker/adapter-core');
 const { MqttClient } = require('./lib/mqttclient');
-const { buildDiscovery, availTopic } = require('./lib/mapping');
+const { buildDiscovery, availTopic, computeUniqueId } = require('./lib/mapping');
 
 class HaBridge extends utils.Adapter {
     constructor(options) {
         super({ ...options, name: 'ha-bridge' });
         this._mqtt       = null;
         this._discovered = new Map();   // uniqueId → { discTopic, stateTopic, adapterName, config }
+        this._topicIndex = new Map();   // stateTopic → disc  (Schnellzugriff für onStateChange)
         this._stateCache = new Map();   // stateTopic → lastValue (als String)
         this._heartbeat  = null;
         this.on('ready',       this.onReady.bind(this));
@@ -62,6 +63,7 @@ class HaBridge extends utils.Adapter {
         const payload = JSON.stringify(disc.config);
         this._mqtt.publish(disc.discTopic, payload, { retain: cfg.retainDiscovery, qos: 1 });
         this._discovered.set(disc.uniqueId, disc);
+        this._topicIndex.set(disc.stateTopic, disc);   // Schnellzugriff für onStateChange
         return disc;
     }
 
@@ -199,14 +201,17 @@ class HaBridge extends utils.Adapter {
         if (!this._mqtt || !this._mqtt.connected) return;
         if (!state) return;
 
-        // uniqueId aus ID ableiten, um den stateTopic zu finden
-        const parts = id.split('.');
+        // stateTopic aus der ioBroker-ID rekonstruieren und damit disc-Eintrag finden.
+        // Das stateTopic wird in buildDiscovery ohne Bereinigung gebaut, daher passt
+        // die direkte Rekonstruktion immer – auch bei Seriennummern im Pfad.
+        const parts    = id.split('.');
         if (parts.length < 3) return;
         const adapterName = parts[0];
-        const relId = parts.slice(2).join('_');
-        const uniqueId = `${adapterName}_${relId}`;
-
-        const disc = this._discovered.get(uniqueId);
+        const deviceKey   = parts.length >= 4 ? parts[2] : adapterName;
+        const relId       = parts.slice(3).length ? parts.slice(3).join('/') : parts[2];
+        const cfg         = this._cfg();
+        const topicKey    = `${cfg.statePfx}/${adapterName}/${deviceKey}/${relId}`;
+        const disc = this._topicIndex.get(topicKey);
         if (!disc) return;   // nicht registriert (z. B. durch einen Neustart entdeckt)
 
         const payload = this._toPayload(state.val);

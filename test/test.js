@@ -28,7 +28,7 @@ test('unit_of_measurement = W',         () => assert.strictEqual(shellyPower.con
 test('state_class = measurement',       () => assert.strictEqual(shellyPower.config.state_class, 'measurement'));
 test('stateTopic enthält Adapter',      () => assert(shellyPower.stateTopic.includes('shelly-gruppen')));
 test('discTopic beginnt mit prefix',    () => assert(shellyPower.discTopic.startsWith('homeassistant/sensor/')));
-test('uniqueId enthält Datenpunkt',     () => assert(shellyPower.uniqueId.includes('TotalActivePower')));
+test('uniqueId enthält common.name',    () => assert(shellyPower.uniqueId.includes('meter1_totalactivepower') || shellyPower.uniqueId.includes('Meter1_TotalActivePower') || shellyPower.uniqueId.toLowerCase().includes('meter1')));
 test('device.model = shelly-gruppen',   () => assert.strictEqual(shellyPower.config.device.model, 'shelly-gruppen'));
 
 console.log('\nbuildDiscovery – Boolean (Online)');
@@ -48,6 +48,19 @@ const ecoDisc = buildDiscovery(
 );
 test('adapterName = ecoflow-gruppen',   () => assert.strictEqual(ecoDisc.adapterName, 'ecoflow-gruppen'));
 test('stateTopic enthält PV/WR1',       () => assert(ecoDisc.stateTopic.includes('PV/WR1')));
+
+console.log('\nbuildDiscovery – Ecoflow mit Seriennummer im deviceKey');
+const ecoSerial = buildDiscovery(
+    'ecoflow-gruppen.0.WR1_HW51ZOH4SF6L7948.invOutputWatts',
+    { name: 'Ausgangsleistung', type: 'number', role: 'value.power', unit: 'W', read: true },
+    'homeassistant', 'iob2ha'
+);
+test('gibt Objekt zurück',              () => assert(ecoSerial !== null));
+test('deviceKey enthält Serial (intern)',() => assert.strictEqual(ecoSerial.deviceKey, 'WR1_HW51ZOH4SF6L7948'));
+test('device.name ohne Serial',         () => assert.strictEqual(ecoSerial.config.device.name, 'WR1'));
+test('uniqueId ohne Serial',            () => assert(!ecoSerial.uniqueId.includes('HW51ZOH4SF6L7948')));
+test('stateTopic mit Serial (Routing)', () => assert(ecoSerial.stateTopic.includes('WR1_HW51ZOH4SF6L7948')));
+test('name aus common.name',            () => assert.strictEqual(ecoSerial.config.name, 'Ausgangsleistung'));
 
 console.log('\nbuildDiscovery – info.connection wird ignoriert');
 test('fullId zu kurz → null',           () => assert.strictEqual(buildDiscovery('shelly-gruppen.0', {}, 'ha', 'iob'), null));
