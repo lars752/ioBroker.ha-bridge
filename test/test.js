@@ -62,6 +62,17 @@ test('uniqueId ohne Serial',            () => assert(!ecoSerial.uniqueId.include
 test('stateTopic mit Serial (Routing)', () => assert(ecoSerial.stateTopic.includes('WR1_HW51ZOH4SF6L7948')));
 test('name aus common.name',            () => assert.strictEqual(ecoSerial.config.name, 'Ausgangsleistung'));
 
+console.log('\nbuildDiscovery – Ecoflow mit WRx-Präfix im common.name');
+const ecoWrName = buildDiscovery(
+    'ecoflow-gruppen.0.akku_wohnung_links.WR1_HW51ZOH4SF764101.invOutputWatts',
+    { name: 'WR1 (HW51ZOH4SF764101) - Ausgangsleistung (invOutputWatts)', type: 'number', role: 'value.power', unit: 'W', read: true },
+    'homeassistant', 'iob2ha'
+);
+test('WRx bleibt im Namen erhalten',    () => assert(ecoWrName.config.name.startsWith('WR1')));
+test('Serial wird aus Namen entfernt',  () => assert(!ecoWrName.config.name.includes('HW51ZOH4SF764101')));
+test('technisches Suffix entfernt',     () => assert(!ecoWrName.config.name.includes('invOutputWatts')));
+test('uniqueId ohne Serial',            () => assert(!ecoWrName.uniqueId.includes('hw51zoh4sf764101')));
+
 console.log('\nbuildDiscovery – info.connection wird ignoriert');
 test('fullId zu kurz → null',           () => assert.strictEqual(buildDiscovery('shelly-gruppen.0', {}, 'ha', 'iob'), null));
 
