@@ -1,0 +1,66 @@
+{
+  "common": {
+    "name": "ha-bridge",
+    "version": "1.0.0",
+    "news": {
+      "1.0.0": { "en": "Initial release", "de": "Erstveröffentlichung" }
+    },
+    "title": "HA Bridge",
+    "titleLang": { "de": "HA Bridge", "en": "HA Bridge" },
+    "desc": {
+      "de": "Überträgt ioBroker-Datenpunkte per MQTT Discovery zu Home Assistant",
+      "en": "Sends ioBroker data points to Home Assistant via MQTT Discovery"
+    },
+    "authors": ["Lars Schley <lars.schley@googlemail.com>"],
+    "icon": "ha-bridge.png",
+    "type": "iot-systems",
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "mode": "daemon",
+    "enabled": true,
+    "readme": "https://github.com/lars752/ioBroker.ha-bridge",
+    "loglevel": "info",
+    "messagebox": true,
+    "adminUI": { "config": "json" },
+    "dependencies": [{ "js-controller": ">=5.0.19" }],
+    "globalDependencies": [{ "admin": ">=6" }]
+  },
+  "native": {
+    "mqttHost": "localhost",
+    "mqttPort": 1883,
+    "mqttUsername": "",
+    "mqttPassword": "",
+    "mqttUseTls": false,
+    "discoveryPrefix": "homeassistant",
+    "haStateTopic": "iob2ha",
+    "sources": [
+      { "adapter": "shelly-gruppen.0",  "enabled": true },
+      { "adapter": "ecoflow-gruppen.0", "enabled": true },
+      { "adapter": "growatt-bms.0",     "enabled": true }
+    ],
+    "publishIntervalSec": 30,
+    "retainDiscovery": true
+  },
+  "encryptedNative": ["mqttPassword"],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": { "name": "Information" },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "MQTT verbunden",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    }
+  ]
+}

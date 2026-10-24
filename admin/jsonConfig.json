@@ -1,0 +1,155 @@
+{
+  "type": "tabs",
+  "i18n": false,
+  "items": {
+    "mqtt": {
+      "type": "panel",
+      "label": { "de": "MQTT-Broker", "en": "MQTT Broker" },
+      "items": {
+        "_mqttHint": {
+          "type": "staticText",
+          "text": {
+            "de": "Verbindungseinstellungen zum MQTT-Broker. Derselbe Broker muss in Home Assistant unter Einstellungen → Integrationen → MQTT konfiguriert sein.",
+            "en": "Connection settings for the MQTT broker. The same broker must be configured in Home Assistant under Settings → Integrations → MQTT."
+          },
+          "newLine": true,
+          "sm": 12
+        },
+        "mqttHost": {
+          "type": "text",
+          "label": { "de": "Broker-Adresse", "en": "Broker host" },
+          "help": { "de": "Hostname oder IP, z. B. 192.168.1.10 oder localhost", "en": "Hostname or IP, e.g. 192.168.1.10 or localhost" },
+          "newLine": true,
+          "sm": 12,
+          "md": 5
+        },
+        "mqttPort": {
+          "type": "number",
+          "label": { "de": "Port", "en": "Port" },
+          "min": 1,
+          "max": 65535,
+          "sm": 12,
+          "md": 2
+        },
+        "mqttUseTls": {
+          "type": "checkbox",
+          "label": { "de": "TLS / MQTTS", "en": "TLS / MQTTS" },
+          "sm": 12,
+          "md": 2
+        },
+        "mqttUsername": {
+          "type": "text",
+          "label": { "de": "Benutzername", "en": "Username" },
+          "newLine": true,
+          "sm": 12,
+          "md": 4
+        },
+        "mqttPassword": {
+          "type": "password",
+          "label": { "de": "Passwort (verschlüsselt gespeichert)", "en": "Password (stored encrypted)" },
+          "sm": 12,
+          "md": 4
+        }
+      }
+    },
+    "ha": {
+      "type": "panel",
+      "label": { "de": "Home Assistant", "en": "Home Assistant" },
+      "items": {
+        "_haHint": {
+          "type": "staticText",
+          "text": {
+            "de": "MQTT Discovery Prefix muss mit der Einstellung in HA übereinstimmen (Standard: homeassistant). State Topic Prefix ist ein frei wählbarer Namensraum für die Zustandsthemen.",
+            "en": "MQTT Discovery Prefix must match the HA setting (default: homeassistant). State Topic Prefix is a freely chosen namespace for the state topics."
+          },
+          "newLine": true,
+          "sm": 12
+        },
+        "discoveryPrefix": {
+          "type": "text",
+          "label": { "de": "MQTT Discovery Prefix", "en": "MQTT Discovery Prefix" },
+          "help": { "de": "Standard: homeassistant", "en": "Default: homeassistant" },
+          "newLine": true,
+          "sm": 12,
+          "md": 4
+        },
+        "haStateTopic": {
+          "type": "text",
+          "label": { "de": "State Topic Prefix", "en": "State Topic Prefix" },
+          "help": { "de": "z. B. iob2ha – Datenpunkte landen unter iob2ha/shelly-gruppen/…", "en": "e.g. iob2ha – data points go to iob2ha/shelly-gruppen/…" },
+          "sm": 12,
+          "md": 4
+        },
+        "retainDiscovery": {
+          "type": "checkbox",
+          "label": { "de": "Discovery-Nachrichten mit Retain senden", "en": "Send discovery messages with retain" },
+          "help": { "de": "Empfohlen: HA findet Entitäten auch nach einem HA-Neustart sofort.", "en": "Recommended: HA finds entities immediately after a HA restart." },
+          "newLine": true,
+          "sm": 12,
+          "md": 4
+        },
+        "publishIntervalSec": {
+          "type": "number",
+          "label": { "de": "Heartbeat-Intervall (Sekunden)", "en": "Heartbeat interval (seconds)" },
+          "help": { "de": "Alle N Sekunden werden alle bekannten Werte erneut gesendet. 0 = nie.", "en": "Every N seconds all known values are republished. 0 = never." },
+          "min": 0,
+          "max": 3600,
+          "sm": 12,
+          "md": 4
+        }
+      }
+    },
+    "sources": {
+      "type": "panel",
+      "label": { "de": "Quell-Adapter", "en": "Source adapters" },
+      "items": {
+        "_srcHint": {
+          "type": "staticText",
+          "text": {
+            "de": "Wähle hier alle ioBroker-Adapter-Instanzen aus, deren Datenpunkte zu Home Assistant übertragen werden sollen. Aktiviere nur laufende Instanzen.",
+            "en": "Select all ioBroker adapter instances whose data points should be sent to Home Assistant. Only enable running instances."
+          },
+          "newLine": true,
+          "sm": 12
+        },
+        "sources": {
+          "type": "table",
+          "label": { "de": "Quell-Instanzen", "en": "Source instances" },
+          "newLine": true,
+          "sm": 12,
+          "items": [
+            {
+              "attr": "enabled",
+              "type": "checkbox",
+              "label": { "de": "Aktiv", "en": "Enabled" },
+              "width": "80px"
+            },
+            {
+              "attr": "adapter",
+              "type": "instance",
+              "label": { "de": "Instanz", "en": "Instance" },
+              "allowAnyInstance": true,
+              "width": "40%"
+            },
+            {
+              "attr": "groups",
+              "type": "selectSendTo",
+              "command": "listGroups",
+              "multiple": true,
+              "manual": true,
+              "alsoDependsOn": ["adapter"],
+              "data": { "adapter": "#adapter" },
+              "label": { "de": "Gruppen (leer = alle)", "en": "Groups (empty = all)" },
+              "help": {
+                "de": "Adapter einmal speichern & starten → Dropdown befüllt sich. Leer = alle.",
+                "en": "Save & start adapter once → dropdown fills. Empty = all."
+              },
+              "width": "60%"
+            }
+          ],
+          "buttons": ["add", "delete"]
+        }
+      }
+    }
+  }
+}
