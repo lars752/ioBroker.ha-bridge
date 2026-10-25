@@ -1,8 +1,9 @@
 {
   "common": {
     "name": "ha-bridge",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "news": {
+      "1.0.1": { "en": "Group selection per source adapter via discover button and groups table", "de": "Gruppenauswahl je Quell-Adapter via Einlesen-Button und Gruppen-Tabelle" },
       "1.0.0": { "en": "Initial release", "de": "Erstveröffentlichung" }
     },
     "title": "HA Bridge",
@@ -38,6 +39,7 @@
       { "adapter": "ecoflow-gruppen.0", "enabled": true },
       { "adapter": "growatt-bms.0",     "enabled": true }
     ],
+    "groups": [],
     "publishIntervalSec": 30,
     "retainDiscovery": true
   },

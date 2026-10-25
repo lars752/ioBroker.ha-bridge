@@ -101,13 +101,13 @@
     },
     "sources": {
       "type": "panel",
-      "label": { "de": "Quell-Adapter", "en": "Source adapters" },
+      "label": { "de": "Quell-Adapter & Gruppen", "en": "Source adapters & groups" },
       "items": {
         "_srcHint": {
           "type": "staticText",
           "text": {
-            "de": "Wähle hier alle ioBroker-Adapter-Instanzen aus, deren Datenpunkte zu Home Assistant übertragen werden sollen. Aktiviere nur laufende Instanzen.",
-            "en": "Select all ioBroker adapter instances whose data points should be sent to Home Assistant. Only enable running instances."
+            "de": "1. Quell-Instanzen eintragen. 2. „Gruppen einlesen" klicken – der Adapter ermittelt alle verfügbaren Gruppen. 3. Häkchen setzen, welche Gruppen zu Home Assistant übertragen werden sollen. Deaktivierte Gruppen werden komplett ignoriert.",
+            "en": "1. Enter source instances. 2. Click „Read groups" – the adapter fetches all available groups. 3. Check which groups should be sent to Home Assistant. Disabled groups are completely ignored."
           },
           "newLine": true,
           "sm": 12
@@ -121,28 +121,66 @@
             {
               "attr": "enabled",
               "type": "checkbox",
-              "label": { "de": "Aktiv", "en": "Enabled" },
+              "title": { "de": "Aktiv", "en": "Enabled" },
               "width": "80px"
             },
             {
               "attr": "adapter",
               "type": "instance",
-              "label": { "de": "Instanz", "en": "Instance" },
+              "title": { "de": "Instanz", "en": "Instance" },
               "allowAnyInstance": true,
-              "width": "40%"
-            },
-            {
-              "attr": "groups",
-              "type": "text",
-              "label": { "de": "Gruppen (leer = alle)", "en": "Groups (empty = all)" },
-              "help": {
-                "de": "Kommagetrennt, z. B.: wohnung_links,wohnung_rechts – leer = alle",
-                "en": "Comma-separated, e.g.: wohnung_links,wohnung_rechts – empty = all"
-              },
-              "width": "60%"
+              "width": "100%"
             }
           ],
           "buttons": ["add", "delete"]
+        },
+        "_discoverBtn": {
+          "type": "sendTo",
+          "command": "discoverGroups",
+          "jsonData": "{\"config\": ${JSON.stringify(data)}}",
+          "useNative": true,
+          "variant": "outlined",
+          "label": {
+            "de": "Gruppen der Quell-Instanzen einlesen",
+            "en": "Read groups of source instances"
+          },
+          "tooltip": {
+            "de": "Ergänzt die Gruppen-Tabelle um alle gefundenen Gruppen (bestehende Häkchen bleiben erhalten). Die Instanz muss laufen.",
+            "en": "Adds all found groups to the group table (existing checkmarks are kept). The instance must be running."
+          },
+          "newLine": true,
+          "sm": 12,
+          "md": 6,
+          "result": "groups"
+        },
+        "groups": {
+          "type": "table",
+          "label": { "de": "Gruppen (Auswahl für HA)", "en": "Groups (selection for HA)" },
+          "newLine": true,
+          "sm": 12,
+          "items": [
+            {
+              "attr": "enabled",
+              "type": "checkbox",
+              "title": { "de": "Übertragen", "en": "Send to HA" },
+              "width": "110px"
+            },
+            {
+              "attr": "adapter",
+              "type": "text",
+              "title": { "de": "Instanz", "en": "Instance" },
+              "width": "40%",
+              "readOnly": true
+            },
+            {
+              "attr": "group",
+              "type": "text",
+              "title": { "de": "Gruppe", "en": "Group" },
+              "width": "60%",
+              "readOnly": true
+            }
+          ],
+          "buttons": ["delete"]
         }
       }
     }
