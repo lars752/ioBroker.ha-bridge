@@ -1,6 +1,6 @@
 {
   "name": "iobroker.ha-bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Überträgt ioBroker-Datenpunkte per MQTT Discovery zu Home Assistant",
   "main": "main.js",
   "scripts": {
