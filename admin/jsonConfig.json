@@ -106,8 +106,8 @@
         "_srcHint": {
           "type": "staticText",
           "text": {
-            "de": "1. Quell-Instanzen eintragen. 2. „Gruppen einlesen" klicken – der Adapter ermittelt alle verfügbaren Gruppen. 3. Häkchen setzen, welche Gruppen zu Home Assistant übertragen werden sollen. Deaktivierte Gruppen werden komplett ignoriert.",
-            "en": "1. Enter source instances. 2. Click „Read groups" – the adapter fetches all available groups. 3. Check which groups should be sent to Home Assistant. Disabled groups are completely ignored."
+            "de": "1. Quell-Instanzen eintragen. 2. Schaltflaeche 'Gruppen einlesen' klicken - der Adapter ermittelt alle verfuegbaren Gruppen. 3. Haekchen setzen, welche Gruppen zu Home Assistant uebertragen werden sollen. Deaktivierte Gruppen werden komplett ignoriert.",
+            "en": "1. Enter source instances. 2. Click 'Read groups' - the adapter fetches all available groups. 3. Check which groups should be sent to Home Assistant. Disabled groups are completely ignored."
           },
           "newLine": true,
           "sm": 12
@@ -151,7 +151,7 @@
           "newLine": true,
           "sm": 12,
           "md": 6,
-          "result": "groups"
+          "showProcess": true
         },
         "groups": {
           "type": "table",

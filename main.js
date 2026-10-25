@@ -310,7 +310,8 @@ class HaBridge extends utils.Adapter {
             // → bewusste Entscheidung: veraltete Einträge werden beim Einlesen entfernt
 
             this.log.info(`discoverGroups: ${newRows.length} Gruppen aus ${sources.length} Instanzen ermittelt`);
-            this.sendTo(obj.from, obj.command, { groups: newRows }, obj.callback);
+            // useNative=true: ioBroker Admin merged { native: {...} } direkt in die Konfiguration
+            this.sendTo(obj.from, obj.command, { native: { groups: newRows } }, obj.callback);
             return;
         }
 
