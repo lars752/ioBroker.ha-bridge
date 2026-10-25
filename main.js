@@ -269,7 +269,10 @@ class HaBridge extends utils.Adapter {
         if (!obj || !obj.callback) return;
 
         if (obj.command === 'discoverGroups') {
-            const cfg = (obj.message && obj.message.config) || {};
+            // Debug: Nachricht-Struktur loggen
+            this.log.debug(`discoverGroups message keys: ${JSON.stringify(Object.keys(obj.message || {}))}`);
+            this.log.debug(`discoverGroups message: ${JSON.stringify(obj.message)}`);
+            const cfg = (obj.message && obj.message.config) || obj.message || {};
             const sources = Array.isArray(cfg.sources) ? cfg.sources.filter(s => s.enabled && s.adapter) : [];
             const existingGroups = Array.isArray(cfg.groups) ? cfg.groups : [];
 
@@ -310,8 +313,13 @@ class HaBridge extends utils.Adapter {
             // → bewusste Entscheidung: veraltete Einträge werden beim Einlesen entfernt
 
             this.log.info(`discoverGroups: ${newRows.length} Gruppen aus ${sources.length} Instanzen ermittelt`);
+            const resultMsg = newRows.length
+                ? `${newRows.length} Gruppe(n) aus ${sources.length} Instanz(en) gefunden. Haekchen setzen, dann 'Speichern und schliessen' druecken.`
+                : sources.length
+                    ? `In ${sources.map(s => s.adapter).join(', ')} wurden keine Gruppen gefunden.`
+                    : 'Keine aktiven Quell-Instanzen konfiguriert.';
             // useNative=true: ioBroker Admin merged { native: {...} } direkt in die Konfiguration
-            this.sendTo(obj.from, obj.command, { native: { groups: newRows } }, obj.callback);
+            this.sendTo(obj.from, obj.command, { native: { groups: newRows }, result: resultMsg }, obj.callback);
             return;
         }
 

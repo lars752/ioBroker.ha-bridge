@@ -151,7 +151,7 @@
           "newLine": true,
           "sm": 12,
           "md": 6,
-          "showProcess": true
+          "showProcess": false
         },
         "groups": {
           "type": "table",
