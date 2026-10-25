@@ -35,6 +35,19 @@ class HaBridge extends utils.Adapter {
 
     _cfg() {
         const c = this.config;
+        // groups-Tabelle: [{ enabled, adapter, group }]
+        // Daraus ein Map: adapterNs → Set<groupName> (nur enabled; leeres Set = alle)
+        const groupMap = {};
+        if (Array.isArray(c.groups)) {
+            for (const row of c.groups) {
+                if (!row || !row.adapter) continue;
+                if (!groupMap[row.adapter]) groupMap[row.adapter] = null; // null = Platzhalter (Instanz bekannt)
+                if (row.enabled && row.group) {
+                    if (groupMap[row.adapter] === null) groupMap[row.adapter] = new Set();
+                    groupMap[row.adapter].add(row.group);
+                }
+            }
+        }
         return {
             host:            c.mqttHost          || 'localhost',
             port:            Number(c.mqttPort)  || 1883,
@@ -44,6 +57,7 @@ class HaBridge extends utils.Adapter {
             discPfx:         c.discoveryPrefix   || 'homeassistant',
             statePfx:        c.haStateTopic      || 'iob2ha',
             sources:         Array.isArray(c.sources) ? c.sources.filter(s => s.enabled && s.adapter) : [],
+            groupMap,        // { [adapterNs]: Set<group>|null }  null = alle Gruppen
             intervalSec:     Math.max(10, Number(c.publishIntervalSec) || 30),
             retainDiscovery: c.retainDiscovery !== false,
         };
@@ -98,7 +112,8 @@ class HaBridge extends utils.Adapter {
         await this.setStateAsync('info.connection', false, true);
         const cfg = this._cfg();
 
-        if (!cfg.sources.length) {
+        const activeSources = cfg.sources.filter(s => s.enabled && s.adapter);
+        if (!activeSources.length) {
             this.log.warn('Keine Quell-Adapter konfiguriert – Adapter bleibt inaktiv');
             return;
         }
@@ -123,9 +138,13 @@ class HaBridge extends utils.Adapter {
         // Discovery + Initialwerte für alle Quellen
         let total = 0;
         for (const src of cfg.sources) {
-            // groups: Array aus selectSendTo (multi) oder leer = alle
-            const groups = this._parseGroups(src.groups);
-            total += await this._initSource(src.adapter, groups, cfg);
+            // Gruppen für diese Instanz aus der groups-Tabelle ermitteln.
+            // groupMap[adapter] = Set<group> (nur enabled) oder null (alle, da keine Gruppen konfiguriert).
+            // Wenn die Instanz gar nicht in groupMap auftaucht, werden alle Gruppen übertragen (Rückwärtskompatibilität).
+            const allowedGroups = cfg.groupMap.hasOwnProperty(src.adapter)
+                ? (cfg.groupMap[src.adapter] || new Set())  // null → leeres Set → alle
+                : new Set();                                  // nicht konfiguriert → alle
+            total += await this._initSource(src.adapter, allowedGroups, cfg);
         }
         this.log.info(`Discovery abgeschlossen: ${total} Datenpunkte an HA gemeldet`);
         this._publishAllOnline(cfg);
@@ -137,18 +156,6 @@ class HaBridge extends utils.Adapter {
 
         // Heartbeat: alle N Sekunden alle bekannten Werte erneut senden
         this._heartbeat = setInterval(() => this._sendHeartbeat(cfg), cfg.intervalSec * 1000);
-    }
-
-    /**
-     * Parst das groups-Feld aus der Konfiguration.
-     * selectSendTo(multiple) liefert Array oder komma-getrennten String oder null.
-     * Gibt ein Set zurück (leer = alle Gruppen erlaubt).
-     */
-    _parseGroups(raw) {
-        if (!raw) return new Set();
-        if (Array.isArray(raw)) return new Set(raw.filter(Boolean));
-        if (typeof raw === 'string') return new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
-        return new Set();
     }
 
     /** Liest alle Objekte + Zustände einer Quell-Instanz und sendet Discovery + Initialwerte. */
@@ -250,11 +257,62 @@ class HaBridge extends utils.Adapter {
 
     /**
      * Admin-Nachrichten.
-     * listGroups: liest alle Kanäle/Geräte der ersten Ebene einer Instanz
-     *             und gibt [{label, value}] zurück.
+     *
+     * discoverGroups: Liest alle aktiven Quell-Instanzen aus der gesendeten Konfiguration,
+     *                 ermittelt deren Gruppen und gibt eine aktualisierte groups-Tabelle zurück.
+     *                 Bestehende enabled-Flags werden beibehalten; neue Gruppen werden mit
+     *                 enabled=true ergänzt.
+     *
+     * listGroups: (Legacy) liest Gruppen einer einzelnen Instanz, gibt [{label, value}] zurück.
      */
     async onMessage(obj) {
         if (!obj || !obj.callback) return;
+
+        if (obj.command === 'discoverGroups') {
+            const cfg = (obj.message && obj.message.config) || {};
+            const sources = Array.isArray(cfg.sources) ? cfg.sources.filter(s => s.enabled && s.adapter) : [];
+            const existingGroups = Array.isArray(cfg.groups) ? cfg.groups : [];
+
+            // Bestehende Gruppen in eine Map überführen: "adapter|group" → row
+            const existingMap = new Map();
+            for (const row of existingGroups) {
+                if (row && row.adapter && row.group) {
+                    existingMap.set(`${row.adapter}|${row.group}`, row);
+                }
+            }
+
+            const newRows = [];
+            for (const src of sources) {
+                let discoveredGroups = new Set();
+                try {
+                    const objs = await this.getForeignObjectsAsync(`${src.adapter}.*`, 'state');
+                    for (const fullId of Object.keys(objs || {})) {
+                        const parts = fullId.split('.');
+                        if (parts.length >= 4) discoveredGroups.add(parts[2]);
+                    }
+                } catch (e) {
+                    this.log.warn(`discoverGroups für ${src.adapter}: ${e.message}`);
+                }
+
+                for (const group of [...discoveredGroups].sort()) {
+                    const key = `${src.adapter}|${group}`;
+                    const existing = existingMap.get(key);
+                    newRows.push({
+                        enabled: existing ? existing.enabled : true,
+                        adapter: src.adapter,
+                        group,
+                    });
+                    existingMap.delete(key); // bereits verarbeitet
+                }
+            }
+
+            // Zeilen für inzwischen nicht mehr gefundene Gruppen entfernen (nicht in newRows übernehmen)
+            // → bewusste Entscheidung: veraltete Einträge werden beim Einlesen entfernt
+
+            this.log.info(`discoverGroups: ${newRows.length} Gruppen aus ${sources.length} Instanzen ermittelt`);
+            this.sendTo(obj.from, obj.command, { groups: newRows }, obj.callback);
+            return;
+        }
 
         if (obj.command === 'listGroups') {
             const adapterNs = obj.message && obj.message.adapter;
@@ -263,7 +321,6 @@ class HaBridge extends utils.Adapter {
                 return;
             }
             try {
-                // Alle Objekte der Instanz lesen und die erste Ebene (deviceKey) sammeln
                 const objs = await this.getForeignObjectsAsync(`${adapterNs}.*`, 'state');
                 const groups = new Set();
                 for (const fullId of Object.keys(objs || {})) {
