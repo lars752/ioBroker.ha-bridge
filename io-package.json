@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "ha-bridge",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "news": {
-      "1.0.2": { "en": "Debug logging for discoverGroups; result message", "de": "Debug-Logging fuer discoverGroups; Ergebnis-Meldung" },
+      "1.0.3": { "en": "Fix: register onMessage handler in constructor", "de": "Fix: onMessage-Handler im Konstruktor registriert" },
       "1.0.1": { "en": "Group selection per source adapter via discover button and groups table", "de": "Gruppenauswahl je Quell-Adapter via Einlesen-Button und Gruppen-Tabelle" },
       "1.0.0": { "en": "Initial release", "de": "Erstveröffentlichung" }
     },
