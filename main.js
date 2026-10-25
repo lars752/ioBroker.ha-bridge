@@ -28,6 +28,7 @@ class HaBridge extends utils.Adapter {
         this._heartbeat  = null;
         this.on('ready',       this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
+        this.on('message',     this.onMessage.bind(this));
         this.on('unload',      this.onUnload.bind(this));
     }
 
