@@ -14,7 +14,7 @@
       "de": "Überträgt ioBroker-Datenpunkte per MQTT Discovery zu Home Assistant",
       "en": "Sends ioBroker data points to Home Assistant via MQTT Discovery"
     },
-    "authors": ["lars752 <174879844+lars752@users.noreply.github.com>"],
+    "authors": ["lars752"],
     "icon": "ha-bridge.png",
     "type": "iot-systems",
     "license": "MIT",
