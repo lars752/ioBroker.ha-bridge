@@ -5,7 +5,7 @@
  */
 
 const assert  = require('assert');
-const { buildDiscovery, availTopic } = require('../lib/mapping');
+const { buildDiscovery, availTopic, parseCommand, isBrightness, stateTopicOf } = require('../lib/mapping');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -93,6 +93,32 @@ test('deviceKey = adapterName (flach)', () => assert.strictEqual(flatDisc.device
 
 console.log('\navailTopic');
 test('Availability Topic mit deviceKey', () => assert.strictEqual(availTopic('shelly-gruppen', 'wohnung_links', 'iob2ha'), 'iob2ha/shelly-gruppen/wohnung_links/availability'));
+
+console.log('\nSteuerung HA → ioBroker (licht-gruppen)');
+const grpOn = { name: 'Gruppe Esszimmer an/aus', type: 'boolean', role: 'switch.light', read: true, write: true };
+const grpBri = { name: 'Helligkeit Esszimmer', type: 'number', unit: '%', min: 0, max: 100, role: 'level.brightness', read: true, write: true };
+const lightDisc = buildDiscovery('licht-gruppen.0.Esszimmer.on', grpOn, 'homeassistant', 'iob2ha', { control: true, sibling: { id: 'licht-gruppen.0.Esszimmer.brightness', common: grpBri } });
+test('mit Steuerung und Helligkeit: light',        () => assert.strictEqual(lightDisc.component, 'light'));
+test('command_topic = <state>/set',                 () => assert.strictEqual(lightDisc.config.command_topic, 'iob2ha/licht-gruppen/Esszimmer/on/set'));
+test('Helligkeit: state/command/scale',             () => { assert.strictEqual(lightDisc.config.brightness_state_topic, 'iob2ha/licht-gruppen/Esszimmer/brightness'); assert.strictEqual(lightDisc.config.brightness_command_topic, 'iob2ha/licht-gruppen/Esszimmer/brightness/set'); assert.strictEqual(lightDisc.config.brightness_scale, 100); });
+test('commands: an/aus und Helligkeit',            () => assert.deepStrictEqual(lightDisc.commands.map(c => [c.topic.split('/').slice(-2, -1)[0], c.id.split('.').pop(), c.type]), [['on', 'on', 'boolean'], ['brightness', 'brightness', 'number']]));
+test('alte Discovery-Einträge werden entfernt',     () => assert.deepStrictEqual(lightDisc.removeTopics, ['homeassistant/binary_sensor/' + lightDisc.uniqueId + '/config', 'homeassistant/switch/' + lightDisc.uniqueId + '/config']));
+const plainOn = buildDiscovery('licht-gruppen.0.Esszimmer.on', grpOn, 'homeassistant', 'iob2ha');
+test('ohne Steuerung bleibt binary_sensor',          () => { assert.strictEqual(plainOn.component, 'binary_sensor'); assert.strictEqual(plainOn.commands.length, 0); assert.strictEqual(plainOn.config.command_topic, undefined); });
+const sw = buildDiscovery('x.0.dev.relay', { name: 'Relais', type: 'boolean', role: 'switch', write: true }, 'homeassistant', 'iob2ha', { control: true });
+test('beschreibbarer Schalter: switch',             () => assert.strictEqual(sw.component, 'switch'));
+const ro = buildDiscovery('x.0.dev.state', { name: 'Zustand', type: 'boolean', role: 'sensor.state', write: false }, 'homeassistant', 'iob2ha', { control: true });
+test('nicht beschreibbar bleibt binary_sensor',     () => assert.strictEqual(ro.component, 'binary_sensor'));
+const ind = buildDiscovery('x.0.dev.alarm', { name: 'Alarm', type: 'boolean', role: 'indicator.alarm', write: true }, 'homeassistant', 'iob2ha', { control: true });
+test('indicator bleibt binary_sensor',              () => assert.strictEqual(ind.component, 'binary_sensor'));
+const num = buildDiscovery('x.0.dev.limit', { name: 'Limit', type: 'number', role: 'level', unit: 'W', min: 0, max: 800, write: true }, 'homeassistant', 'iob2ha', { control: true });
+test('Zahl mit min/max: number',                    () => { assert.strictEqual(num.component, 'number'); assert.strictEqual(num.config.max, 800); assert.strictEqual(num.config.command_topic, 'iob2ha/x/dev/limit/set'); });
+const num2 = buildDiscovery('x.0.dev.val', { name: 'Wert', type: 'number', role: 'level', write: true }, 'homeassistant', 'iob2ha', { control: true });
+test('Zahl ohne min/max bleibt sensor',             () => assert.strictEqual(num2.component, 'sensor'));
+test('parseCommand boolean',                         () => { assert.strictEqual(parseCommand('ON', { type: 'boolean' }), true); assert.strictEqual(parseCommand('false', { type: 'boolean' }), false); assert.strictEqual(parseCommand('maybe', { type: 'boolean' }), null); });
+test('parseCommand number begrenzt',                 () => { assert.strictEqual(parseCommand('150', { type: 'number', min: 0, max: 100 }), 100); assert.strictEqual(parseCommand('-5', { type: 'number', min: 0, max: 100 }), 0); assert.strictEqual(parseCommand('abc', { type: 'number' }), null); assert.strictEqual(parseCommand('', { type: 'number' }), null); });
+test('isBrightness',                                () => { assert.ok(isBrightness('a.0.g.brightness', grpBri)); assert.ok(!isBrightness('a.0.g.power', { type: 'number', write: true, role: 'value.power' })); assert.ok(!isBrightness('a.0.g.brightness', { ...grpBri, write: false })); });
+test('stateTopicOf',                                 () => assert.strictEqual(stateTopicOf('licht-gruppen.0.Esszimmer.Lampe1.on', 'iob2ha'), 'iob2ha/licht-gruppen/Esszimmer/Lampe1/on'));
 
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen`);
 if (failed > 0) process.exit(1);

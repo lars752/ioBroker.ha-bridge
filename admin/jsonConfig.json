@@ -125,6 +125,16 @@
               "width": "80px"
             },
             {
+              "attr": "control",
+              "type": "checkbox",
+              "title": { "de": "Steuern (HA → ioBroker)", "en": "Control (HA → ioBroker)" },
+              "tooltip": {
+                "de": "Beschreibbare Datenpunkte erscheinen in Home Assistant als Schalter, Licht (mit Helligkeit) oder Zahl und können dort bedient werden. Nur für Quellen aktivieren, denen Home Assistant vertrauen darf.",
+                "en": "Writable datapoints appear in Home Assistant as switch, light (with brightness) or number and can be operated there. Enable only for sources Home Assistant may be trusted with."
+              },
+              "width": "160px"
+            },
+            {
               "attr": "adapter",
               "type": "instance",
               "title": { "de": "Instanz", "en": "Instance" },

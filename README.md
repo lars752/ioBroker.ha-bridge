@@ -49,11 +49,26 @@ iobroker url https://github.com/lars752/ioBroker.ha-bridge
 ### Quell-Adapter
 Die Tabelle enthält die zu spiegelnden ioBroker-Instanzen, z. B.:
 
-| Aktiv | Instanz |
+| Aktiv | Steuern | Instanz |
+|---|---|---|
+| ✓ | | `shelly-gruppen.0` |
+| ✓ | | `ecoflow-gruppen.0` |
+| ✓ | | `growatt-bms.0` |
+| ✓ | ✓ | `licht-gruppen.0` |
+
+### Steuern (Home Assistant → ioBroker)
+Ist bei einer Instanz „Steuern“ gesetzt, werden ihre **beschreibbaren** Datenpunkte in Home Assistant bedienbar. Standard ist aus (nur Anzeige).
+
+| ioBroker-Datenpunkt | Entität in Home Assistant |
 |---|---|
-| ✓ | `shelly-gruppen.0` |
-| ✓ | `ecoflow-gruppen.0` |
-| ✓ | `growatt-bms.0` |
+| boolesch, beschreibbar, Rolle `switch.light` oder mit Helligkeit im selben Ordner (z. B. `Esszimmer.on` + `Esszimmer.brightness`) | `light` mit Helligkeit (0–100 bzw. `max` des Datenpunkts) |
+| boolesch, beschreibbar, sonst (nicht `indicator`/`button`/`sensor`/`value`) | `switch` |
+| Zahl, beschreibbar, mit `min` und `max` | `number` |
+| alles andere, auch nicht beschreibbare Datenpunkte | wie bisher `sensor` / `binary_sensor` |
+
+Befehle laufen über `<State-Topic>/set`, z. B. `iob2ha/licht-gruppen/Esszimmer/on/set` (`ON`/`OFF`/`true`/`false`) und `…/Esszimmer/brightness/set` (Zahl, wird auf `min`/`max` begrenzt). Der Adapter schreibt sie mit `ack=false` in den Datenpunkt, die Quelle verarbeitet sie also wie einen Befehl aus der Admin-Oberfläche. Ungültige Befehle werden mit Warnung ignoriert, Topics, die der Adapter nicht selbst angelegt hat, ebenfalls. Wird „Steuern“ später abgeschaltet, ersetzt der Adapter die Einträge wieder durch Sensoren (alte Discovery-Einträge werden entfernt).
+
+Hinweis: Wer Schreibrechte auf den MQTT-Broker hat, kann diese Datenpunkte schalten. Den Broker deshalb absichern (Benutzer/Passwort, TLS) und „Steuern“ nur für Quellen aktivieren, denen Home Assistant vertrauen darf.
 
 ## MQTT-Topic-Struktur
 
@@ -77,6 +92,11 @@ Nach dem ersten Start erscheinen unter Einstellungen → Geräte die drei Gerät
 npm install
 npm test
 ```
+
+## Changelog
+
+### 1.1.0
+- Neu: „Steuern“ je Quell-Instanz: beschreibbare Datenpunkte erscheinen in Home Assistant als `light` (mit Helligkeit), `switch` oder `number` und werden per MQTT-Befehl in ioBroker geschrieben (ack=false)
 
 ## Lizenz
 

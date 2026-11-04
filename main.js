@@ -16,7 +16,14 @@
 
 const utils = require('@iobroker/adapter-core');
 const { MqttClient } = require('./lib/mqttclient');
-const { buildDiscovery, availTopic, computeUniqueId } = require('./lib/mapping');
+const { buildDiscovery, availTopic, computeUniqueId, isBrightness, stateTopicOf, parseCommand } = require('./lib/mapping');
+
+/** Beschreibbarer An/Aus-Datenpunkt, der zusammen mit einer Helligkeit im selben Ordner ein Licht ergibt. */
+function isLightOn(fullId, obj) {
+    const c = obj && obj.common;
+    return !!c && obj.type === 'state' && c.type === 'boolean' && c.write === true
+        && !/^(indicator|button|sensor|value)/.test(String(c.role || '')) && /^(on|switch|power|state)$/i.test(fullId.split('.').pop());
+}
 
 class HaBridge extends utils.Adapter {
     constructor(options) {
@@ -25,6 +32,7 @@ class HaBridge extends utils.Adapter {
         this._discovered = new Map();   // uniqueId → { discTopic, stateTopic, adapterName, config }
         this._topicIndex = new Map();   // stateTopic → disc  (Schnellzugriff für onStateChange)
         this._stateCache = new Map();   // stateTopic → lastValue (als String)
+        this._cmdIndex   = new Map();   // Befehls-Topic → { id, type, min, max }
         this._heartbeat  = null;
         this.on('ready',       this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
@@ -58,6 +66,7 @@ class HaBridge extends utils.Adapter {
             discPfx:         c.discoveryPrefix   || 'homeassistant',
             statePfx:        c.haStateTopic      || 'iob2ha',
             sources:         Array.isArray(c.sources) ? c.sources.filter(s => s.enabled && s.adapter) : [],
+            controlAdapters: new Set(Array.isArray(c.sources) ? c.sources.filter(s => s.enabled && s.adapter && s.control).map(s => s.adapter) : []),
             groupMap,        // { [adapterNs]: Set<group>|null }  null = alle Gruppen
             intervalSec:     Math.max(10, Number(c.publishIntervalSec) || 30),
             retainDiscovery: c.retainDiscovery !== false,
@@ -72,11 +81,16 @@ class HaBridge extends utils.Adapter {
     }
 
     /** Sendet Discovery + aktuellen State für einen Datenpunkt. */
-    _publishDiscovery(fullId, common, cfg) {
-        const disc = buildDiscovery(fullId, common, cfg.discPfx, cfg.statePfx);
+    _publishDiscovery(fullId, common, cfg, opts = {}) {
+        const disc = buildDiscovery(fullId, common, cfg.discPfx, cfg.statePfx, opts);
         if (!disc) return null;
         const payload = JSON.stringify(disc.config);
         this._mqtt.publish(disc.discTopic, payload, { retain: cfg.retainDiscovery, qos: 1 });
+        for (const t of disc.removeTopics) this._mqtt.publish(t, '', { retain: true, qos: 1 });   // alte Einträge anderen Typs entfernen
+        for (const c of disc.commands) {
+            this._cmdIndex.set(c.topic, c);
+            this._mqtt.subscribe(c.topic);
+        }
         this._discovered.set(disc.uniqueId, disc);
         this._topicIndex.set(disc.stateTopic, disc);   // Schnellzugriff für onStateChange
         return disc;
@@ -129,6 +143,7 @@ class HaBridge extends utils.Adapter {
             clientId: `iobroker-ha-bridge-${this.instance}`,
             log:      this.log,
             onConnect:    () => this._onMqttConnect(cfg),
+            onMessage:    (topic, payload) => this._onCommand(topic, payload),
             onDisconnect: () => this.setStateAsync('info.connection', false, true).catch(() => {}),
         });
     }
@@ -170,6 +185,22 @@ class HaBridge extends utils.Adapter {
             return 0;
         }
 
+        const control = cfg.controlAdapters.has(adapterNs);
+        // Steuerung: Helligkeit im selben Ordner gehört zum Licht (kein eigener Eintrag)
+        const siblings = new Map();   // Ordner → { id, common }
+        const consumed = new Set();
+        if (control) {
+            for (const [fullId, obj] of Object.entries(objs || {})) {
+                const dir = fullId.slice(0, fullId.lastIndexOf('.'));
+                if (obj && obj.type === 'state' && isBrightness(fullId, obj.common) && !siblings.has(dir)) siblings.set(dir, { id: fullId, common: obj.common });
+            }
+            for (const [fullId, obj] of Object.entries(objs || {})) {
+                const dir = fullId.slice(0, fullId.lastIndexOf('.'));
+                const sib = siblings.get(dir);
+                if (sib && sib.id !== fullId && isLightOn(fullId, obj)) consumed.add(sib.id);
+            }
+        }
+
         for (const [fullId, obj] of Object.entries(objs || {})) {
             if (!obj || obj.type !== 'state') continue;
             const common = obj.common;
@@ -185,7 +216,16 @@ class HaBridge extends utils.Adapter {
                 if (!deviceKey || !groups.has(deviceKey)) continue;
             }
 
-            const disc = this._publishDiscovery(fullId, common, cfg);
+            let disc;
+            if (consumed.has(fullId)) {
+                // gehört zu einem Licht: nur State-Topic bedienen (Discovery macht das Licht)
+                disc = { stateTopic: stateTopicOf(fullId, cfg.statePfx), uniqueId: `${fullId}#brightness`, adapterName: fullId.split('.')[0], deviceKey: fullId.split('.').length >= 4 ? fullId.split('.')[2] : fullId.split('.')[0] };
+                this._topicIndex.set(disc.stateTopic, disc);
+            } else {
+                const dir = fullId.slice(0, fullId.lastIndexOf('.'));
+                const sibling = siblings.get(dir);
+                disc = this._publishDiscovery(fullId, common, cfg, { control, sibling: sibling && sibling.id !== fullId && isLightOn(fullId, obj) ? sibling : null });
+            }
             if (!disc) continue;
 
             // Initialwert
@@ -226,6 +266,23 @@ class HaBridge extends utils.Adapter {
         if (this._stateCache.get(disc.stateTopic) === payload) return;   // kein Update nötig
         this._stateCache.set(disc.stateTopic, payload);
         this._mqtt.publish(disc.stateTopic, payload, { retain: false });
+    }
+
+    /** Befehl aus Home Assistant → ioBroker-Datenpunkt schreiben (nur für Befehls-Topics, die wir selbst angelegt haben). */
+    async _onCommand(topic, payload) {
+        const spec = this._cmdIndex.get(topic);
+        if (!spec) return;
+        const val = parseCommand(payload, spec);
+        if (val === null) {
+            this.log.warn(`Befehl "${payload}" für ${spec.id} ungültig – ignoriert`);
+            return;
+        }
+        this.log.debug(`HA → ${spec.id} = ${val}`);
+        try {
+            await this.setForeignStateAsync(spec.id, { val, ack: false });
+        } catch (e) {
+            this.log.error(`Schreiben von ${spec.id}: ${e.message}`);
+        }
     }
 
     /** Sendet alle gecachten Werte erneut (Heartbeat für HA). */
